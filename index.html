@@ -1,0 +1,76 @@
+// --- AI API INTERACTION ---
+        async function sendMessage() {
+            const input = document.getElementById('promptInput');
+            const prompt = input.value.trim();
+            const apiKey = localStorage.getItem('api_key');
+            const apiUrl = localStorage.getItem('api_url') || DEFAULT_API_URL;
+            const model = localStorage.getItem('model_id') || DEFAULT_MODEL;
+
+            if (!prompt) return;
+
+            // Check API Key
+            if (!apiKey) {
+                alert("Please click Settings (gear icon) and enter your API Key first.");
+                openSettings();
+                return;
+            }
+
+            // UI Loading State
+            input.value = '';
+            input.style.height = 'auto';
+            document.getElementById('loader').classList.remove('hidden');
+            
+            // Prepare Messages
+            const messages = [
+                { role: "system", content: SYSTEM_PROMPT },
+                { role: "user", content: Current HTML Code:\n${currentHtml}\n\nTask: ${prompt} }
+            ];
+
+            try {
+                // CRITICAL FIX: Anti-Crash Fetch Logic
+                const response = await fetch(apiUrl, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": Bearer ${apiKey},
+                        "HTTP-Referer": window.location.href, // OpenRouter requirement
+                        "X-Title": "AI Website Builder"       // OpenRouter requirement
+                    },
+                    body: JSON.stringify({
+                        model: model,
+                        messages: messages,
+                        temperature: 0.7 // Balanced creativity
+                    })
+                });
+
+                // 1. Get raw text first (safeguard against non-JSON errors)
+                const text = await response.text();
+
+                // 2. Check HTTP status
+                if (!response.ok) {
+                    console.error("API Error:", text);
+                    alert(API Error: ${text});
+                    document.getElementById('loader').classList.add('hidden');
+                    return; // STOP EXECUTION
+                }
+
+                // 3. Parse JSON only if safe
+                const data = JSON.parse(text);
+
+                if (data.choices && data.choices[0] && data.choices[0].message) {
+                    const newCode = data.choices[0].message.content;
+                    updatePreview(newCode);
+                } else {
+                    throw new Error("Invalid API response format");
+                }
+
+            } catch (error) {
+                console.error(error);
+                alert("Error: " + error.message);
+            } finally {
+                document.getElementById('loader').classList.add('hidden');
+            }
+        }
+    </script>
+</body>
+</html>
